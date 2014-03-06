@@ -1,0 +1,8 @@
+U+0065 (e, LATIN SMALL LETTER E) # good single character
+U+1127 (', APOSTROPHE) # invalid number
+U+002C (,, COMMA)
+
+"ᏚᎢᎵᎬᎢᎬᏒ" (U+13DA U+13A2 U+13B5 U+13AC U+13A2
+U+13AC U+13D2) # good string, split line
+this one is harder: U+13DA U+13A2 U+13B5 U+13AC
+ U+13A2 U+13AC U+13D2 (ᏚᎢᎵᎬᎢᎬᏒ)

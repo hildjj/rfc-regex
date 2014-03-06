@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+import codecs
+import os
+import re
+import unicodedata
+
+DIR = 'tests'
+
+# Search for U+xxxx (y, DESCRIPTION)
+single_re = re.compile(r'U\+(?P<num>[0-9A-F]{4}) \((?P<rep>,|[^,]+), (?P<name>[A-Z ]+)\)')
+
+# Search for "string" (U+xxxx ...)
+string_re = re.compile(r'"(?P<s>[^"]+)"\s+\((?P<pts>\s*U\+[0-9A-F]{4}(\s+U\+[0-9A-F]{4})*)\s*\)')
+
+# Search for U+xxxx (string)
+post_re = re.compile(r'(?P<pts>U\+[0-9A-F]{4}(\s+U\+[0-9A-F]{4})+)\s+\((?P<s>[^)]+)\)')
+
+u_re = re.compile(r'U\+([0-9A-F]{4})')
+ws_re = re.compile(r'\s+')
+
+def unum(hex_str):
+    return ("\\u" + hex_str).decode('unicode-escape')
+
+def uplus(s):
+    ret = u""
+    for i,c in enumerate(s):
+        if i>0:
+            ret += ' '
+        ret += "U+%04X" % (ord(c),)
+    return ret
+
+def uminus(s):
+    ret = u''
+    for i in u_re.finditer(s):
+        ret += unum(i.group(1))
+    return ret
+
+def check_single(filename, line, num, rep, name):
+    er = False
+    if len(rep) != 1:
+        print "%s:%d: BAD: invalid representation: '%s'" % (filename, line, rep)
+        er = True
+    else:
+        c = unum(num)
+        if c != rep:
+            print "%s:%d: BAD: mismatch U+%s (%s) != U+%04X (%s)" % (filename, line, num, c, ord(rep), rep)
+            er = True
+        print repr(c)
+        uname = unicodedata.name(c)
+        if name != uname:
+            print "%s:%d: BAD: mismatch (U+%s) '%s' != '%s'" % (filename, line, num, name, uname)
+            er = True
+
+    if not er:
+        print "%s:%d: GOOD: U+%s (%s, %s)" % (filename, line, num, rep, name)
+
+def check_string(filename, line, s, pts):
+    pts = ws_re.sub(' ', pts)
+    upts = uplus(s)
+    er = False
+    if pts != upts:
+        print "%s:%d: BAD: mismatch '%s' (%s) != '%s' (%s)" % (filename, line, s, pts, uminus(pts), upts)
+        er = True
+    if not er:
+        print "%s:%d: GOOD: '%s' (%s)" % (filename, line, s, pts)
+
+def check_post(filename, line, pts, s):
+    pts = ws_re.sub(' ', pts)
+    upts = uplus(s)
+    print 'POST', pts, "(", s, ")"
+
+def check(rgx, fun, filename, text):
+    for i in rgx.finditer(text):
+        line = text.count('\n', 0, i.start()) + 1
+        fun(filename, line, **i.groupdict())
+
+for dirpath, dirnames, filenames in os.walk(DIR):
+    for f in filenames:
+        filename = os.path.join(dirpath,f)
+        with codecs.open(filename, 'r', 'utf8') as rf:
+            text = rf.read()
+            check(single_re, check_single, filename, text)
+            check(string_re, check_string, filename, text)
+            check(post_re, check_string, filename, text)
